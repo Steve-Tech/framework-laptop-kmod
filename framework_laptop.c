@@ -37,6 +37,7 @@ static struct device *ec_device;
 struct framework_data {
 	struct platform_device *pdev;
 	struct led_classdev kb_led;
+	struct led_classdev fp_led;
 	struct device *hwmon_dev;
 };
 
@@ -180,6 +181,80 @@ static int kb_led_set(struct led_classdev *led, enum led_brightness value)
 	return 0;
 }
 
+#define EC_CMD_FP_LED_LEVEL_CONTROL 0x3E0E
+
+struct ec_params_fp_led_control {
+	uint8_t set_led_level;
+	uint8_t get_led_level;
+} __ec_align1;
+
+enum fp_led_brightness_level {
+	FP_LED_BRIGHTNESS_HIGH = 0,
+	FP_LED_BRIGHTNESS_MEDIUM = 1,
+	FP_LED_BRIGHTNESS_LOW = 2,
+};
+
+struct ec_response_fp_led_level {
+	uint8_t level;
+} __ec_align1;
+
+// Get the fingerprint LED brightness
+static enum led_brightness fp_led_get(struct led_classdev *led)
+{
+	struct cros_ec_device *ec;
+	int ret;
+
+	struct ec_params_fp_led_control params = {
+		.set_led_level = 0,
+		.get_led_level = 1,
+	};
+
+	struct ec_response_fp_led_level resp;
+
+	if (!ec_device)
+		goto out;
+
+	ec = dev_get_drvdata(ec_device);
+
+	ret = cros_ec_cmd(ec, 0, EC_CMD_FP_LED_LEVEL_CONTROL, &params,
+			  sizeof(params), &resp, sizeof(resp));
+
+	if (ret < 0) {
+		goto out;
+	}
+
+	return resp.level;
+
+out:
+	return 0;
+}
+
+// Set the fingerprint LED brightness
+static int fp_led_set(struct led_classdev *led, enum led_brightness value)
+{
+	struct cros_ec_device *ec;
+	int ret;
+
+	struct ec_params_fp_led_control params = {
+		.set_led_level = FP_LED_BRIGHTNESS_LOW - value,
+		.get_led_level = 0,
+	};
+
+	struct ec_response_fp_led_level resp;
+
+	if (!ec_device)
+		return -EIO;
+
+	ec = dev_get_drvdata(ec_device);
+
+	ret = cros_ec_cmd(ec, 0, EC_CMD_FP_LED_LEVEL_CONTROL, &params,
+			  sizeof(params), &resp, sizeof(resp));
+	if (ret < 0) {
+		return -EIO;
+	}
+
+	return 0;
+}
 
 static ssize_t battery_get_threshold(char *buf)
 {
@@ -667,7 +742,18 @@ static int framework_probe(struct platform_device *pdev)
 	data->kb_led.brightness_get = kb_led_get;
 	data->kb_led.brightness_set_blocking = kb_led_set;
 	data->kb_led.max_brightness = 100;
+
 	ret = devm_led_classdev_register(&pdev->dev, &data->kb_led);
+	if (ret)
+		return ret;
+
+	/* "fingerprint" is a non-standard name, but this behaves weird anyway */
+	data->fp_led.name = DRV_NAME "::fingerprint";
+	data->fp_led.brightness_get = fp_led_get;
+	data->fp_led.brightness_set_blocking = fp_led_set;
+	data->fp_led.max_brightness = 2;
+
+	ret = devm_led_classdev_register(&pdev->dev, &data->fp_led);
 	if (ret)
 		return ret;
 
