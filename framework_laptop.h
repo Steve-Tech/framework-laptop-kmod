@@ -47,4 +47,5 @@ int fw_battery_register(struct framework_data *data);
 void fw_battery_unregister(struct framework_data *data);
 
 /* SysFS attributes */
-ssize_t framework_privacy_show(struct device *dev, struct device_attribute *attr, char *buf);
+ssize_t framework_privacy_show(struct device *dev,
+			       struct device_attribute *attr, char *buf);

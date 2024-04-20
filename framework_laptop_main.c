@@ -44,9 +44,9 @@ static struct attribute *framework_laptop_attrs[] = {
 ATTRIBUTE_GROUPS(framework_laptop);
 
 static const struct acpi_device_id device_ids[] = {
-	{"FRMW0001", 0},
-	{"FRMW0004", 0},
-	{"", 0},
+	{ "FRMW0001", 0 },
+	{ "FRMW0004", 0 },
+	{ "", 0 },
 };
 MODULE_DEVICE_TABLE(acpi, device_ids);
 
@@ -62,8 +62,9 @@ static const struct dmi_system_id framework_laptop_dmi_table[] __initconst = {
 };
 MODULE_DEVICE_TABLE(dmi, framework_laptop_dmi_table);
 
-static int device_match_cros_ec(struct device *dev, const void* foo) {
-	const char* name = dev_name(dev);
+static int device_match_cros_ec(struct device *dev, const void *foo)
+{
+	const char *name = dev_name(dev);
 	if (strncmp(name, "cros-ec-dev", 11))
 		return 0;
 	return 1;
@@ -77,9 +78,11 @@ static int framework_probe(struct platform_device *pdev)
 
 	dev = &pdev->dev;
 
-	ec_device = bus_find_device(&platform_bus_type, NULL, NULL, device_match_cros_ec);
+	ec_device = bus_find_device(&platform_bus_type, NULL, NULL,
+				    device_match_cros_ec);
 	if (!ec_device) {
-		dev_err(dev, DRV_NAME ": failed to find EC %s.\n", FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
+		dev_err(dev, DRV_NAME ": failed to find EC %s.\n",
+			FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 		return -EINVAL;
 	}
 	ec_device = ec_device->parent;
@@ -90,7 +93,7 @@ static int framework_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, data);
-	data->pdev = pdev;	
+	data->pdev = pdev;
 
 #if 0
 	/* Register the driver */
@@ -121,7 +124,6 @@ static int framework_remove(struct platform_device *pdev)
 	struct framework_data *data;
 
 	data = (struct framework_data *)platform_get_drvdata(pdev);
-
 
 	// Make sure they're not null before we try to unregister it
 	if (data) {
@@ -160,8 +162,7 @@ static int __init framework_laptop_init(void)
 		goto fail;
 
 	fwdevice = platform_device_alloc(DRV_NAME, PLATFORM_DEVID_NONE);
-	if (!fwdevice)
-	{
+	if (!fwdevice) {
 		ret = -ENOMEM;
 		goto fail_platform_driver;
 	}
@@ -185,8 +186,7 @@ fail:
 
 static void __exit framework_laptop_exit(void)
 {
-	if (fwdevice)
-	{
+	if (fwdevice) {
 		platform_device_unregister(fwdevice);
 		platform_driver_unregister(&framework_driver);
 	}

@@ -34,11 +34,8 @@ static int ec_led_set(struct led_classdev *led, enum led_brightness value)
 	struct framework_led *fw_led =
 		container_of(led, struct framework_led, led);
 
-
-	struct ec_params_led_control params = {
-		.led_id = fw_led->id,
-		.flags = 0
-	};
+	struct ec_params_led_control params = { .led_id = fw_led->id,
+						.flags = 0 };
 
 	memset(params.brightness, 0, sizeof(params.brightness));
 	params.brightness[fw_led->color] = value;
@@ -172,7 +169,7 @@ static void ec_trig_deactivate(struct led_classdev *led)
 int fw_color_leds_register(struct framework_data *data)
 {
 	int ret;
-	
+
 	struct device *dev = &data->pdev->dev;
 
 	ec_device = data->ec_device;
@@ -182,9 +179,12 @@ int fw_color_leds_register(struct framework_data *data)
 		return ret;
 
 	const char *batt_led_names[EC_LED_COLOR_COUNT] = {
-		DRV_NAME ":red:" LED_FUNCTION_INDICATOR,   DRV_NAME ":green:" LED_FUNCTION_INDICATOR,
-		DRV_NAME ":blue:" LED_FUNCTION_INDICATOR,  DRV_NAME ":yellow:" LED_FUNCTION_INDICATOR,
-		DRV_NAME ":white:" LED_FUNCTION_INDICATOR, DRV_NAME ":amber:" LED_FUNCTION_INDICATOR,
+		DRV_NAME ":red:" LED_FUNCTION_INDICATOR,
+		DRV_NAME ":green:" LED_FUNCTION_INDICATOR,
+		DRV_NAME ":blue:" LED_FUNCTION_INDICATOR,
+		DRV_NAME ":yellow:" LED_FUNCTION_INDICATOR,
+		DRV_NAME ":white:" LED_FUNCTION_INDICATOR,
+		DRV_NAME ":amber:" LED_FUNCTION_INDICATOR,
 	};
 
 	for (uint i = 0; i < EC_LED_COLOR_COUNT; i++) {
@@ -198,12 +198,11 @@ int fw_color_leds_register(struct framework_data *data)
 			ec_led_max(&data->batt_led[i].led);
 
 		if (data->batt_led[i].led.max_brightness <= 0)
-			break;
+			continue;
 
 		data->batt_led[i].led.trigger_type = &framework_hw_trigger_type;
 
-		ret = devm_led_classdev_register(
-			dev, &data->batt_led[i].led);
+		ret = devm_led_classdev_register(dev, &data->batt_led[i].led);
 		if (ret)
 			return ret;
 	}

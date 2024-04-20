@@ -54,4 +54,3 @@ ssize_t framework_privacy_show(struct device *dev,
 			  resp.microphone ? "unmuted" : "muted",
 			  resp.camera ? "unmuted" : "muted");
 }
-

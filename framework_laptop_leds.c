@@ -49,7 +49,7 @@ static enum led_brightness kb_led_get(struct led_classdev *led)
 	memset(&buf, 0, sizeof(buf));
 
 	p->pwm_type = EC_PWM_TYPE_KB_LIGHT;
-	
+
 	msg->version = 0;
 	msg->command = EC_CMD_PWM_GET_DUTY;
 	msg->insize = sizeof(*resp);
@@ -87,7 +87,7 @@ static int kb_led_set(struct led_classdev *led, enum led_brightness value)
 	ec = dev_get_drvdata(ec_device);
 
 	memset(&buf, 0, sizeof(buf));
-	
+
 	msg->version = 0;
 	msg->command = EC_CMD_PWM_SET_KEYBOARD_BACKLIGHT;
 	msg->insize = 0;
@@ -181,9 +181,9 @@ static int fp_led_set(struct led_classdev *led, enum led_brightness value)
 int fw_leds_register(struct framework_data *data)
 {
 	int ret;
-	
+
 	struct device *dev = &data->pdev->dev;
-	
+
 	data->kb_led.name = DRV_NAME "::kbd_backlight";
 	data->kb_led.brightness_get = kb_led_get;
 	data->kb_led.brightness_set_blocking = kb_led_set;
@@ -202,7 +202,7 @@ int fw_leds_register(struct framework_data *data)
 	ret = devm_led_classdev_register(dev, &data->fp_led);
 	if (ret)
 		return ret;
-	
+
 	return 0;
 }
 

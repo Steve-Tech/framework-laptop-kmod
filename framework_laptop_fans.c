@@ -395,8 +395,10 @@ int fw_hwmon_register(struct framework_data *data)
 			return PTR_ERR(data->hwmon_dev);
 
 	} else {
-		dev_err(dev, DRV_NAME ": fan readings could not be enabled for this EC %s.\n",
-		FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
+		dev_err(dev,
+			DRV_NAME
+			": fan readings could not be enabled for this EC %s.\n",
+			FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 	}
 
 	return 0;
