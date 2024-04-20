@@ -914,9 +914,9 @@ static int framework_probe(struct platform_device *pdev)
 		return ret;
 
 	const char *batt_led_names[EC_LED_COLOR_COUNT] = {
-		DRV_NAME ":red:battery",   DRV_NAME ":green:battery",
-		DRV_NAME ":blue:battery",  DRV_NAME ":yellow:battery",
-		DRV_NAME ":white:battery", DRV_NAME ":amber:battery",
+		DRV_NAME ":red:" LED_FUNCTION_INDICATOR,   DRV_NAME ":green:" LED_FUNCTION_INDICATOR,
+		DRV_NAME ":blue:" LED_FUNCTION_INDICATOR,  DRV_NAME ":yellow:" LED_FUNCTION_INDICATOR,
+		DRV_NAME ":white:" LED_FUNCTION_INDICATOR, DRV_NAME ":amber:" LED_FUNCTION_INDICATOR,
 	};
 
 	for (uint i = 0; i < EC_LED_COLOR_COUNT; i++) {
