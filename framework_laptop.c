@@ -39,6 +39,7 @@ struct framework_led {
 	enum ec_led_id id;
 	enum ec_led_colors color;
 	struct led_classdev led;
+	struct framework_led *others;
 };
 struct framework_data {
 	struct platform_device *pdev;
@@ -286,6 +287,10 @@ static int ec_led_set(struct led_classdev *led, enum led_brightness value)
 	if (!ec_device)
 		return -EIO;
 
+	if (led->trigger) {
+		led_trigger_set(led, NULL);
+	}
+
 	ec = dev_get_drvdata(ec_device);
 
 	ret = cros_ec_cmd(ec, 1, EC_CMD_LED_CONTROL, &params, sizeof(params),
@@ -325,6 +330,82 @@ static int ec_led_max(struct led_classdev *led)
 	return resp.brightness_range[fw_led->color];
 
 	return 0;
+}
+
+static struct led_hw_trigger_type framework_hw_trigger_type;
+
+static int ec_trig_activate(struct led_classdev *led);
+static void ec_trig_deactivate(struct led_classdev *led);
+static struct led_trigger framework_led_trigger = {
+	.name = DRV_NAME,
+	.activate = ec_trig_activate,
+	.deactivate = ec_trig_deactivate,
+	.trigger_type = &framework_hw_trigger_type
+};
+
+static int ec_trig_activate(struct led_classdev *led)
+{
+	struct cros_ec_device *ec;
+	int ret;
+
+	struct framework_led *fw_led =
+		container_of(led, struct framework_led, led);
+
+	struct ec_params_led_control params = { .led_id = fw_led->id,
+						.flags = EC_LED_FLAGS_AUTO };
+
+	struct ec_response_led_control resp;
+
+	if (!ec_device)
+		return -EIO;
+
+	ec = dev_get_drvdata(ec_device);
+
+	ret = cros_ec_cmd(ec, 1, EC_CMD_LED_CONTROL, &params, sizeof(params),
+			  &resp, sizeof(resp));
+	if (ret < 0) {
+		return -EIO;
+	}
+
+	// Unset the trigger functions, so we don't get a loop
+	framework_led_trigger.activate = NULL;
+	framework_led_trigger.deactivate = NULL;
+
+	for (int i = 0; i < EC_LED_COLOR_COUNT; i++) {
+		struct framework_led *other = &fw_led->others[i];
+		struct led_classdev *other_led = &other->led;
+
+		if (other_led != led)
+			led_trigger_set(other_led, &framework_led_trigger);
+	}
+
+	// Reset the trigger functions
+	framework_led_trigger.activate = ec_trig_activate;
+	framework_led_trigger.deactivate = ec_trig_deactivate;
+
+	return 0;
+}
+
+static void ec_trig_deactivate(struct led_classdev *led)
+{
+	struct framework_led *fw_led =
+		container_of(led, struct framework_led, led);
+
+	// Unset the trigger functions, so we don't get a loop
+	framework_led_trigger.activate = NULL;
+	framework_led_trigger.deactivate = NULL;
+
+	for (int i = 0; i < EC_LED_COLOR_COUNT; i++) {
+		struct framework_led *other = &fw_led->others[i];
+		struct led_classdev *other_led = &other->led;
+
+		if (other_led != led)
+			led_trigger_set(other_led, NULL);
+	}
+
+	// Reset the trigger functions
+	framework_led_trigger.activate = ec_trig_activate;
+	framework_led_trigger.deactivate = ec_trig_deactivate;
 }
 
 static ssize_t battery_get_threshold(char *buf)
@@ -828,6 +909,10 @@ static int framework_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = devm_led_trigger_register(&pdev->dev, &framework_led_trigger);
+	if (ret)
+		return ret;
+
 	const char *batt_led_names[EC_LED_COLOR_COUNT] = {
 		DRV_NAME ":red:battery",   DRV_NAME ":green:battery",
 		DRV_NAME ":blue:battery",  DRV_NAME ":yellow:battery",
@@ -835,6 +920,7 @@ static int framework_probe(struct platform_device *pdev)
 	};
 
 	for (uint i = 0; i < EC_LED_COLOR_COUNT; i++) {
+		data->batt_led[i].others = data->batt_led;
 		data->batt_led[i].id = EC_LED_ID_BATTERY_LED;
 		data->batt_led[i].color = i;
 		data->batt_led[i].led.name = batt_led_names[i];
@@ -846,11 +932,17 @@ static int framework_probe(struct platform_device *pdev)
 		if (data->batt_led[i].led.max_brightness <= 0)
 			break;
 
+		data->batt_led[i].led.trigger_type = &framework_hw_trigger_type;
+
 		ret = devm_led_classdev_register(
 			&pdev->dev, &data->batt_led[i].led);
 		if (ret)
 			return ret;
 	}
+
+	// Set trigger
+	led_trigger_set(&data->batt_led[0].led, &framework_led_trigger);
+	// Why aren't I using default_trigger? Because that will run for every color, instead of once for all of them
 
 #if 0
 	/* Register the driver */
