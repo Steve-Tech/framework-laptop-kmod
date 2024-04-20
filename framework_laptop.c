@@ -34,10 +34,17 @@
 
 static struct platform_device *fwdevice;
 static struct device *ec_device;
+
+struct framework_led {
+	enum ec_led_id id;
+	enum ec_led_colors color;
+	struct led_classdev led;
+};
 struct framework_data {
 	struct platform_device *pdev;
 	struct led_classdev kb_led;
 	struct led_classdev fp_led;
+	struct framework_led batt_led[EC_LED_COLOR_COUNT];
 	struct device *hwmon_dev;
 };
 
@@ -252,6 +259,70 @@ static int fp_led_set(struct led_classdev *led, enum led_brightness value)
 	if (ret < 0) {
 		return -EIO;
 	}
+
+	return 0;
+}
+
+// Set the LED brightness
+static int ec_led_set(struct led_classdev *led, enum led_brightness value)
+{
+	struct cros_ec_device *ec;
+	int ret;
+
+	struct framework_led *fw_led =
+		container_of(led, struct framework_led, led);
+
+
+	struct ec_params_led_control params = {
+		.led_id = fw_led->id,
+		.flags = 0
+	};
+
+	memset(params.brightness, 0, sizeof(params.brightness));
+	params.brightness[fw_led->color] = value;
+
+	struct ec_response_led_control resp;
+
+	if (!ec_device)
+		return -EIO;
+
+	ec = dev_get_drvdata(ec_device);
+
+	ret = cros_ec_cmd(ec, 1, EC_CMD_LED_CONTROL, &params, sizeof(params),
+			  &resp, sizeof(resp));
+	if (ret < 0) {
+		return -EIO;
+	}
+
+	return 0;
+}
+
+// Query the max LED brightness
+static int ec_led_max(struct led_classdev *led)
+{
+	struct cros_ec_device *ec;
+	int ret;
+
+	struct framework_led *fw_led =
+		container_of(led, struct framework_led, led);
+
+	struct ec_params_led_control params = { .led_id = fw_led->id,
+						.flags = EC_LED_FLAGS_QUERY };
+
+	struct ec_response_led_control resp;
+
+	if (!ec_device)
+		return -EIO;
+
+	ec = dev_get_drvdata(ec_device);
+
+	ret = cros_ec_cmd(ec, 1, EC_CMD_LED_CONTROL, &params, sizeof(params),
+			  &resp, sizeof(resp));
+	if (ret < 0) {
+		return -EIO;
+	}
+
+	return resp.brightness_range[fw_led->color];
 
 	return 0;
 }
@@ -756,6 +827,30 @@ static int framework_probe(struct platform_device *pdev)
 	ret = devm_led_classdev_register(&pdev->dev, &data->fp_led);
 	if (ret)
 		return ret;
+
+	const char *batt_led_names[EC_LED_COLOR_COUNT] = {
+		DRV_NAME ":red:battery",   DRV_NAME ":green:battery",
+		DRV_NAME ":blue:battery",  DRV_NAME ":yellow:battery",
+		DRV_NAME ":white:battery", DRV_NAME ":amber:battery",
+	};
+
+	for (uint i = 0; i < EC_LED_COLOR_COUNT; i++) {
+		data->batt_led[i].id = EC_LED_ID_BATTERY_LED;
+		data->batt_led[i].color = i;
+		data->batt_led[i].led.name = batt_led_names[i];
+		data->fp_led.brightness_get = NULL;
+		data->batt_led[i].led.brightness_set_blocking = ec_led_set;
+		data->batt_led[i].led.max_brightness =
+			ec_led_max(&data->batt_led[i].led);
+
+		if (data->batt_led[i].led.max_brightness <= 0)
+			break;
+
+		ret = devm_led_classdev_register(
+			&pdev->dev, &data->batt_led[i].led);
+		if (ret)
+			return ret;
+	}
 
 #if 0
 	/* Register the driver */
