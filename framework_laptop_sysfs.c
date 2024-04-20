@@ -10,16 +10,14 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/hwmon-sysfs.h>
-#include <linux/hwmon.h>
 #include <linux/kernel.h>
-#include <linux/leds.h>
 #include <linux/module.h>
+#include <linux/types.h>
+#include <linux/leds.h>
+#include <linux/sysfs.h>
+#include <linux/platform_device.h>
 #include <linux/platform_data/cros_ec_commands.h>
 #include <linux/platform_data/cros_ec_proto.h>
-#include <linux/platform_device.h>
-#include <linux/sysfs.h>
-#include <linux/types.h>
 
 #include "framework_laptop.h"
 
@@ -32,7 +30,6 @@ struct ec_response_privacy_switches_check {
 	uint8_t camera;
 } __ec_align1;
 
-// --- framework_privacy ---
 ssize_t framework_privacy_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
@@ -49,7 +46,7 @@ ssize_t framework_privacy_show(struct device *dev,
 	if (ret < 0)
 		return -EIO;
 
-	// Output following dell-privacy's format
+	/* Output following dell-privacy's format */
 	return sysfs_emit(buf, "[Microphone] [%s]\n[Camera] [%s]\n",
 			  resp.microphone ? "unmuted" : "muted",
 			  resp.camera ? "unmuted" : "muted");

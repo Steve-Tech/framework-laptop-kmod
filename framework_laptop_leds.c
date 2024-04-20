@@ -10,22 +10,19 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/hwmon-sysfs.h>
-#include <linux/hwmon.h>
 #include <linux/kernel.h>
-#include <linux/leds.h>
 #include <linux/module.h>
+#include <linux/types.h>
+#include <linux/leds.h>
+#include <linux/platform_device.h>
 #include <linux/platform_data/cros_ec_commands.h>
 #include <linux/platform_data/cros_ec_proto.h>
-#include <linux/platform_device.h>
-#include <linux/sysfs.h>
-#include <linux/types.h>
 
 #include "framework_laptop.h"
 
 static struct device *ec_device;
 
-// Get the last set keyboard LED brightness
+/* Get the last set keyboard LED brightness */
 static enum led_brightness kb_led_get(struct led_classdev *led)
 {
 	struct {
@@ -66,7 +63,7 @@ out:
 	return 0;
 }
 
-// Set the keyboard LED brightness
+/* Set the keyboard LED brightness */
 static int kb_led_set(struct led_classdev *led, enum led_brightness value)
 {
 	struct {
@@ -120,7 +117,7 @@ struct ec_response_fp_led_level {
 	uint8_t level;
 } __ec_align1;
 
-// Get the fingerprint LED brightness
+/* Get the fingerprint LED brightness */
 static enum led_brightness fp_led_get(struct led_classdev *led)
 {
 	struct cros_ec_device *ec;
@@ -151,7 +148,7 @@ out:
 	return 0;
 }
 
-// Set the fingerprint LED brightness
+/* Set the fingerprint LED brightness */
 static int fp_led_set(struct led_classdev *led, enum led_brightness value)
 {
 	struct cros_ec_device *ec;

@@ -10,23 +10,22 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/types.h>
+#include <linux/platform_device.h>
+#include <linux/leds.h>
 #include <linux/hwmon-sysfs.h>
 #include <linux/hwmon.h>
-#include <linux/kernel.h>
-#include <linux/leds.h>
-#include <linux/module.h>
 #include <linux/platform_data/cros_ec_commands.h>
 #include <linux/platform_data/cros_ec_proto.h>
-#include <linux/platform_device.h>
-#include <linux/sysfs.h>
-#include <linux/types.h>
 
 #include "framework_laptop.h"
 
 static struct device *ec_device;
 
-// --- fanN_input ---
-// Read the current fan speed from the EC's memory
+/**** fanN_input ****/
+/* Read the current fan speed from the EC's memory */
 static ssize_t ec_get_fan_speed(u8 idx, u16 *val)
 {
 	if (!ec_device)
@@ -53,11 +52,11 @@ static ssize_t fw_fan_speed_show(struct device *dev,
 		return sysfs_emit(buf, "%u\n", 0);
 	}
 
-	// Format as string for sysfs
+	/* Format as string for sysfs */
 	return sysfs_emit(buf, "%u\n", val);
 }
 
-// --- fanN_target ---
+/**** fanN_target ****/
 static ssize_t ec_set_target_rpm(u8 idx, u32 *val)
 {
 	int ret;
@@ -89,7 +88,7 @@ static ssize_t ec_get_target_rpm(u8 idx, u32 *val)
 
 	struct ec_response_pwm_get_fan_rpm resp;
 
-	// index isn't supported, it should only return fan 0's target
+	/* index isn't supported, it should only return fan 0's target */
 
 	ret = cros_ec_cmd(ec, 0, EC_CMD_PWM_GET_FAN_TARGET_RPM, NULL, 0, &resp,
 			  sizeof(resp));
@@ -125,7 +124,7 @@ static ssize_t fw_fan_target_show(struct device *dev,
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 
-	// Only fan 0 is supported
+	/* Only fan 0 is supported */
 	if (sen_attr->index != 0) {
 		return -EINVAL;
 	}
@@ -135,11 +134,10 @@ static ssize_t fw_fan_target_show(struct device *dev,
 		return -EIO;
 	}
 
-	// Format as string for sysfs
 	return sysfs_emit(buf, "%u\n", val);
 }
 
-// --- fanN_fault ---
+/**** fanN_fault ****/
 static ssize_t fw_fan_fault_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
@@ -150,11 +148,10 @@ static ssize_t fw_fan_fault_show(struct device *dev,
 		return -EIO;
 	}
 
-	// Format as string for sysfs
 	return sysfs_emit(buf, "%u\n", val == EC_FAN_SPEED_NOT_PRESENT);
 }
 
-// --- fanN_alarm ---
+/**** fanN_alarm ****/
 static ssize_t fw_fan_alarm_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
@@ -165,11 +162,11 @@ static ssize_t fw_fan_alarm_show(struct device *dev,
 		return -EIO;
 	}
 
-	// Format as string for sysfs
+	/* Format as string for sysfs */
 	return sysfs_emit(buf, "%u\n", val == EC_FAN_SPEED_STALLED);
 }
 
-// --- pwmN_enable ---
+/**** pwmN_enable ****/
 static ssize_t ec_set_auto_fan_ctrl(u8 idx)
 {
 	int ret;
@@ -196,14 +193,8 @@ static ssize_t fw_pwm_enable_store(struct device *dev,
 {
 	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
 
-	// The EC doesn't take any arguments for this command,
-	// so we don't need to parse the buffer
-	// u32 val;
-
-	// int err;
-	// err = kstrtou32(buf, 10, &val);
-	// if (err < 0)
-	// 	return err;
+	/* The EC doesn't take any arguments for this command,
+	so we don't need to parse the buffer */
 
 	if (ec_set_auto_fan_ctrl(sen_attr->index) < 0) {
 		return -EIO;
@@ -212,7 +203,7 @@ static ssize_t fw_pwm_enable_store(struct device *dev,
 	return count;
 }
 
-// --- pwmN ---
+/**** pwmN ****/
 static ssize_t ec_set_fan_duty(u8 idx, u32 *val)
 {
 	int ret;
@@ -290,17 +281,17 @@ static ssize_t ec_count_fans(size_t *val)
 
 #define FW_ATTRS_PER_FAN 8
 
-// --- hwmon sysfs attributes ---
-// clang-format off
-static SENSOR_DEVICE_ATTR_RO(fan1_input, fw_fan_speed, 0); // Fan Reading
-static SENSOR_DEVICE_ATTR_RW(fan1_target, fw_fan_target, 0); // Target RPM (RW on fan 0 only)
-static SENSOR_DEVICE_ATTR_RO(fan1_fault, fw_fan_fault, 0); // Fan Not Present
-static SENSOR_DEVICE_ATTR_RO(fan1_alarm, fw_fan_alarm, 0); // Fan Stalled
-static SENSOR_DEVICE_ATTR_WO(pwm1_enable, fw_pwm_enable, 0); // Set Fan Control Mode
-static SENSOR_DEVICE_ATTR_WO(pwm1, fw_pwm, 0); // Set Fan Speed
-static SENSOR_DEVICE_ATTR_RO(pwm1_min, fw_pwm_min, 0); // Min Fan Speed
-static SENSOR_DEVICE_ATTR_RO(pwm1_max, fw_pwm_max, 0); // Max Fan Speed
-// clang-format on
+/**** hwmon sysfs attributes ****/
+/* clang-format off */
+static SENSOR_DEVICE_ATTR_RO(fan1_input, fw_fan_speed, 0); /* Fan Reading */
+static SENSOR_DEVICE_ATTR_RW(fan1_target, fw_fan_target, 0); /* Target RPM (RW on fan 0 only) */
+static SENSOR_DEVICE_ATTR_RO(fan1_fault, fw_fan_fault, 0); /* Fan Not Present */
+static SENSOR_DEVICE_ATTR_RO(fan1_alarm, fw_fan_alarm, 0); /* Fan Stalled */
+static SENSOR_DEVICE_ATTR_WO(pwm1_enable, fw_pwm_enable, 0); /* Set Fan Control Mode */
+static SENSOR_DEVICE_ATTR_WO(pwm1, fw_pwm, 0); /* Set Fan Speed */
+static SENSOR_DEVICE_ATTR_RO(pwm1_min, fw_pwm_min, 0); /* Min Fan Speed */
+static SENSOR_DEVICE_ATTR_RO(pwm1_max, fw_pwm_max, 0); /* Max Fan Speed */
+/* clang-format on */
 
 static SENSOR_DEVICE_ATTR_RO(fan2_input, fw_fan_speed, 1);
 static SENSOR_DEVICE_ATTR_WO(fan2_target, fw_fan_target, 1);
@@ -380,13 +371,13 @@ int fw_hwmon_register(struct framework_data *data)
 	ec_device = data->ec_device;
 
 	if (ec->cmd_readmem) {
-		// Count the number of fans
+		/* Count the number of fans */
 		size_t fan_count;
 		if (ec_count_fans(&fan_count) < 0) {
 			dev_err(dev, DRV_NAME ": failed to count fans.\n");
 			return -EINVAL;
 		}
-		// NULL terminates the list after the last detected fan
+		/* NULL terminates the list after the last detected fan */
 		fw_hwmon_attrs[fan_count * FW_ATTRS_PER_FAN] = NULL;
 
 		data->hwmon_dev = hwmon_device_register_with_groups(

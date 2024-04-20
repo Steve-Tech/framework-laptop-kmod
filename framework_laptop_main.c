@@ -9,25 +9,13 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/acpi.h>
-#include <linux/hwmon.h>
-#include <linux/hwmon-sysfs.h>
-#include <linux/init.h>
-#include <linux/input.h>
 #include <linux/kernel.h>
-#include <linux/leds.h>
 #include <linux/module.h>
-#include <linux/pci_ids.h>
-#include <linux/power_supply.h>
-#include <linux/sysfs.h>
 #include <linux/types.h>
+#include <linux/leds.h>
 #include <linux/dmi.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/cros_ec_proto.h>
-#include <linux/platform_data/cros_ec_commands.h>
-#include <linux/version.h>
-
-#include <acpi/battery.h>
 
 #include "framework_laptop.h"
 
@@ -125,7 +113,7 @@ static int framework_remove(struct platform_device *pdev)
 
 	data = (struct framework_data *)platform_get_drvdata(pdev);
 
-	// Make sure they're not null before we try to unregister it
+	/* Make sure they're not null before we try to unregister it */
 	if (data) {
 		fw_hwmon_unregister(data);
 		fw_color_leds_unregister(data);

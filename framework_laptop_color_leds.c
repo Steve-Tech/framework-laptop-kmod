@@ -10,22 +10,19 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/hwmon-sysfs.h>
-#include <linux/hwmon.h>
 #include <linux/kernel.h>
-#include <linux/leds.h>
 #include <linux/module.h>
+#include <linux/types.h>
+#include <linux/platform_device.h>
+#include <linux/leds.h>
 #include <linux/platform_data/cros_ec_commands.h>
 #include <linux/platform_data/cros_ec_proto.h>
-#include <linux/platform_device.h>
-#include <linux/sysfs.h>
-#include <linux/types.h>
 
 #include "framework_laptop.h"
 
 static struct device *ec_device;
 
-// Set the LED brightness
+/* Set the LED's brightness */
 static int ec_led_set(struct led_classdev *led, enum led_brightness value)
 {
 	struct cros_ec_device *ec;
@@ -60,7 +57,7 @@ static int ec_led_set(struct led_classdev *led, enum led_brightness value)
 	return 0;
 }
 
-// Query the max LED brightness
+/* Query the max LED brightness */
 static int ec_led_max(struct led_classdev *led)
 {
 	struct cros_ec_device *ec;
@@ -125,7 +122,7 @@ static int ec_trig_activate(struct led_classdev *led)
 		return -EIO;
 	}
 
-	// Unset the trigger functions, so we don't get a loop
+	/* Unset the trigger functions, so we don't get a loop */
 	framework_led_trigger.activate = NULL;
 	framework_led_trigger.deactivate = NULL;
 
@@ -137,7 +134,7 @@ static int ec_trig_activate(struct led_classdev *led)
 			led_trigger_set(other_led, &framework_led_trigger);
 	}
 
-	// Reset the trigger functions
+	/* Reset the trigger functions */
 	framework_led_trigger.activate = ec_trig_activate;
 	framework_led_trigger.deactivate = ec_trig_deactivate;
 
@@ -149,7 +146,7 @@ static void ec_trig_deactivate(struct led_classdev *led)
 	struct framework_led *fw_led =
 		container_of(led, struct framework_led, led);
 
-	// Unset the trigger functions, so we don't get a loop
+	/* Unset the trigger functions, so we don't get a loop */
 	framework_led_trigger.activate = NULL;
 	framework_led_trigger.deactivate = NULL;
 
@@ -161,7 +158,7 @@ static void ec_trig_deactivate(struct led_classdev *led)
 			led_trigger_set(other_led, NULL);
 	}
 
-	// Reset the trigger functions
+	/* Reset the trigger functions */
 	framework_led_trigger.activate = ec_trig_activate;
 	framework_led_trigger.deactivate = ec_trig_deactivate;
 }
@@ -207,8 +204,8 @@ int fw_color_leds_register(struct framework_data *data)
 			return ret;
 	}
 
-	// Set trigger
-	// Why aren't I using default_trigger? Because that will run for every color, instead of once for all of them
+	/* Set trigger */
+	/* Why aren't I using default_trigger? Because that will run for every color, instead of once for all of them */
 	ret = led_trigger_set(&data->batt_led[0].led, &framework_led_trigger);
 	if (ret)
 		return ret;
