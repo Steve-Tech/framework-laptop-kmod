@@ -22,60 +22,11 @@
 
 static struct device *ec_device;
 
-/* Get the last set keyboard LED brightness */
+/* Get the current keyboard LED brightness */
 static enum led_brightness kb_led_get(struct led_classdev *led)
 {
-	struct {
-		struct cros_ec_command msg;
-		union {
-			struct ec_params_pwm_get_duty p;
-			struct ec_response_pwm_get_duty resp;
-		};
-	} __packed buf;
-
-	struct ec_params_pwm_get_duty *p = &buf.p;
-	struct ec_response_pwm_get_duty *resp = &buf.resp;
-	struct cros_ec_command *msg = &buf.msg;
 	struct cros_ec_device *ec;
-	int ret;
-	if (!ec_device)
-		goto out;
 
-	ec = dev_get_drvdata(ec_device);
-
-	memset(&buf, 0, sizeof(buf));
-
-	p->pwm_type = EC_PWM_TYPE_KB_LIGHT;
-
-	msg->version = 0;
-	msg->command = EC_CMD_PWM_GET_DUTY;
-	msg->insize = sizeof(*resp);
-	msg->outsize = sizeof(*p);
-
-	ret = cros_ec_cmd_xfer_status(ec, msg);
-	if (ret < 0) {
-		goto out;
-	}
-
-	return resp->duty * 100 / EC_PWM_MAX_DUTY;
-
-out:
-	return 0;
-}
-
-/* Set the keyboard LED brightness */
-static int kb_led_set(struct led_classdev *led, enum led_brightness value)
-{
-	struct {
-		struct cros_ec_command msg;
-		union {
-			struct ec_params_pwm_set_keyboard_backlight params;
-		};
-	} __packed buf;
-
-	struct ec_params_pwm_set_keyboard_backlight *params = &buf.params;
-	struct cros_ec_command *msg = &buf.msg;
-	struct cros_ec_device *ec;
 	int ret;
 
 	if (!ec_device)
@@ -83,16 +34,35 @@ static int kb_led_set(struct led_classdev *led, enum led_brightness value)
 
 	ec = dev_get_drvdata(ec_device);
 
-	memset(&buf, 0, sizeof(buf));
+	struct ec_response_pwm_get_keyboard_backlight resp;
 
-	msg->version = 0;
-	msg->command = EC_CMD_PWM_SET_KEYBOARD_BACKLIGHT;
-	msg->insize = 0;
-	msg->outsize = sizeof(*params);
+	ret = cros_ec_cmd(ec, 0, EC_CMD_PWM_SET_KEYBOARD_BACKLIGHT, NULL, 0,
+			  &resp, sizeof(resp));
+	if (ret < 0) {
+		return -EIO;
+	}
 
-	params->percent = value;
+	return resp.percent;
+}
 
-	ret = cros_ec_cmd_xfer_status(ec, msg);
+/* Set the keyboard LED brightness */
+static int kb_led_set(struct led_classdev *led, enum led_brightness value)
+{
+	struct cros_ec_device *ec;
+
+	int ret;
+
+	if (!ec_device)
+		return -EIO;
+
+	ec = dev_get_drvdata(ec_device);
+
+	struct ec_params_pwm_set_keyboard_backlight params = {
+		.percent = value,
+	};
+
+	ret = cros_ec_cmd(ec, 0, EC_CMD_PWM_SET_KEYBOARD_BACKLIGHT, &params,
+			  sizeof(params), NULL, 0);
 	if (ret < 0) {
 		return -EIO;
 	}
@@ -180,6 +150,8 @@ int fw_leds_register(struct framework_data *data)
 	int ret;
 
 	struct device *dev = &data->pdev->dev;
+	
+	ec_device = data->ec_device;
 
 	data->kb_led.name = DRV_NAME "::kbd_backlight";
 	data->kb_led.brightness_get = kb_led_get;
