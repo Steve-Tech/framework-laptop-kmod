@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/leds.h>
+#include <linux/sysfs.h>
 #include <linux/dmi.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/cros_ec_proto.h>
@@ -20,7 +21,6 @@
 #include "framework_laptop.h"
 
 static struct platform_device *fwdevice;
-static struct device *ec_device;
 
 static DEVICE_ATTR_RO(framework_privacy);
 
@@ -50,19 +50,18 @@ static const struct dmi_system_id framework_laptop_dmi_table[] __initconst = {
 };
 MODULE_DEVICE_TABLE(dmi, framework_laptop_dmi_table);
 
-static int device_match_cros_ec(struct device *dev, const void *foo)
+static int device_match_cros_ec(struct device *dev, const void *data)
 {
+	/* bus_find_device_by_name() seems to do more than it needs to */
 	const char *name = dev_name(dev);
-	if (strncmp(name, "cros-ec-dev", 11))
-		return 0;
-	return 1;
+	return !strncmp(name, "cros-ec-dev", 11);
 }
 
 static int framework_probe(struct platform_device *pdev)
 {
 	struct device *dev;
 	struct framework_data *data;
-	int ret = 0;
+	struct device *ec_device;
 
 	dev = &pdev->dev;
 
@@ -73,8 +72,7 @@ static int framework_probe(struct platform_device *pdev)
 			FRAMEWORK_LAPTOP_EC_DEVICE_NAME);
 		return -EINVAL;
 	}
-	ec_device = ec_device->parent;
-	data->ec_device = ec_device;
+	ec_device = get_device(ec_device->parent);
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -82,36 +80,23 @@ static int framework_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, data);
 	data->pdev = pdev;
-
-#if 0
-	/* Register the driver */
-	ret = platform_driver_register(&cros_ec_lpc_driver);
-	if (ret) {
-		pr_err(DRV_NAME ": can't register driver: %d\n", ret);
-		return ret;
-	}
-
-	/* Register the device, and it'll get hooked up automatically */
-	ret = platform_device_register(&cros_ec_lpc_device);
-	if (ret) {
-		pr_err(DRV_NAME ": can't register device: %d\n", ret);
-		platform_driver_unregister(&cros_ec_lpc_driver);
-	}
-#endif
+	data->ec_device = ec_device;
 
 	fw_battery_register(data);
 	fw_leds_register(data);
 	fw_color_leds_register(data);
 	fw_hwmon_register(data);
 
-	return ret;
+	return 0;
 }
 
 static int framework_remove(struct platform_device *pdev)
 {
+	struct device *dev;
 	struct framework_data *data;
 
-	data = (struct framework_data *)platform_get_drvdata(pdev);
+	dev = &pdev->dev;
+	data = platform_get_drvdata(pdev);
 
 	/* Make sure they're not null before we try to unregister it */
 	if (data) {
@@ -121,7 +106,7 @@ static int framework_remove(struct platform_device *pdev)
 		fw_battery_unregister(data);
 	}
 
-	put_device(ec_device);
+	put_device(data->ec_device);
 
 	return 0;
 }

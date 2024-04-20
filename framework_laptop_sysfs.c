@@ -21,8 +21,6 @@
 
 #include "framework_laptop.h"
 
-static struct device *ec_device;
-
 #define EC_CMD_PRIVACY_SWITCHES_CHECK_MODE 0x3E14
 
 struct ec_response_privacy_switches_check {
@@ -33,11 +31,15 @@ struct ec_response_privacy_switches_check {
 ssize_t framework_privacy_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
+	struct framework_data *data;
 	int ret;
-	if (!ec_device)
+
+	data = platform_get_drvdata(to_platform_device(dev));
+	
+	if (!data->ec_device)
 		return -ENODEV;
 
-	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
+	struct cros_ec_device *ec = dev_get_drvdata(data->ec_device);
 
 	struct ec_response_privacy_switches_check resp;
 

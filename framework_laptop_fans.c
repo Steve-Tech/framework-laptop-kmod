@@ -380,7 +380,7 @@ int fw_hwmon_register(struct framework_data *data)
 		/* NULL terminates the list after the last detected fan */
 		fw_hwmon_attrs[fan_count * FW_ATTRS_PER_FAN] = NULL;
 
-		data->hwmon_dev = hwmon_device_register_with_groups(
+		data->hwmon_dev = devm_hwmon_device_register_with_groups(
 			dev, DRV_NAME, NULL, fw_hwmon_groups);
 		if (IS_ERR(data->hwmon_dev))
 			return PTR_ERR(data->hwmon_dev);
@@ -400,5 +400,5 @@ void fw_hwmon_unregister(struct framework_data *data)
 	if (!data->hwmon_dev)
 		return;
 
-	hwmon_device_unregister(data->hwmon_dev);
+	devm_hwmon_device_unregister(data->hwmon_dev);
 }

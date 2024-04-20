@@ -42,10 +42,6 @@ static int ec_led_set(struct led_classdev *led, enum led_brightness value)
 	if (!ec_device)
 		return -EIO;
 
-	if (led->trigger) {
-		led_trigger_set(led, NULL);
-	}
-
 	ec = dev_get_drvdata(ec_device);
 
 	ret = cros_ec_cmd(ec, 1, EC_CMD_LED_CONTROL, &params, sizeof(params),
@@ -215,8 +211,11 @@ int fw_color_leds_register(struct framework_data *data)
 
 void fw_color_leds_unregister(struct framework_data *data)
 {
+	struct device *dev = &data->pdev->dev;
+
 	for (uint i = 0; i < EC_LED_COLOR_COUNT; i++) {
-		led_classdev_unregister(&data->batt_led[i].led);
+		if (data->batt_led[i].led.max_brightness <= 0)
+			devm_led_classdev_unregister(dev, &data->batt_led[i].led);
 	}
 
 	led_trigger_unregister(&framework_led_trigger);

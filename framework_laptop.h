@@ -28,10 +28,10 @@ struct framework_led {
 struct framework_data {
 	struct platform_device *pdev;
 	struct device *ec_device;
+	struct device *hwmon_dev;
 	struct led_classdev kb_led;
 	struct led_classdev fp_led;
 	struct framework_led batt_led[EC_LED_COLOR_COUNT];
-	struct device *hwmon_dev;
 };
 
 int fw_hwmon_register(struct framework_data *data);

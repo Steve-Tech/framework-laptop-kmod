@@ -177,6 +177,8 @@ static struct acpi_battery_hook framework_laptop_battery_hook = {
 
 int fw_battery_register(struct framework_data *data)
 {
+	ec_device = data->ec_device;
+	
 	battery_hook_register(&framework_laptop_battery_hook);
 	
 	return 0;

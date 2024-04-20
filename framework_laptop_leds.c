@@ -160,7 +160,7 @@ int fw_leds_register(struct framework_data *data)
 
 	ret = devm_led_classdev_register(dev, &data->kb_led);
 	if (ret)
-		return ret;
+		goto kb_error;
 
 	/* "fingerprint" is a non-standard name, but this behaves weird anyway */
 	data->fp_led.name = DRV_NAME "::fingerprint";
@@ -170,13 +170,21 @@ int fw_leds_register(struct framework_data *data)
 
 	ret = devm_led_classdev_register(dev, &data->fp_led);
 	if (ret)
-		return ret;
+		goto fp_error;
 
 	return 0;
+
+fp_error:
+	devm_led_classdev_unregister(dev, &data->fp_led);
+kb_error:
+	devm_led_classdev_unregister(dev, &data->kb_led);
+
+	return ret;
 }
 
 void fw_leds_unregister(struct framework_data *data)
 {
-	led_classdev_unregister(&data->kb_led);
-	led_classdev_unregister(&data->fp_led);
+	struct device *dev = &data->pdev->dev;
+	devm_led_classdev_unregister(dev, &data->fp_led);
+	devm_led_classdev_unregister(dev, &data->kb_led);
 }
