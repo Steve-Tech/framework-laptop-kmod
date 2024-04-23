@@ -24,6 +24,32 @@
 
 static struct device *ec_device;
 
+/**** Command definitions ****/
+
+/* clang-format off */
+#define EC_CMD_CHASSIS_INTRUSION 0x3E09
+#define EC_PARAM_CHASSIS_INTRUSION_MAGIC 0xCE
+#define EC_PARAM_CHASSIS_BBRAM_MAGIC 0xEC
+
+struct ec_params_chassis_intrusion_control {
+	uint8_t clear_magic;
+	uint8_t clear_chassis_status;
+} __ec_align1;
+
+struct ec_response_chassis_intrusion_control {
+	uint8_t chassis_ever_opened;	/* bios used */
+	uint8_t coin_batt_ever_remove;	/* factory used */
+	uint8_t total_open_count;	/* reserved */
+	uint8_t vtr_open_count;		/* reserved */
+} __ec_align1;
+
+#define EC_CMD_CHASSIS_OPEN_CHECK	0x3E0F
+
+struct ec_response_chassis_open_check {
+	uint8_t status;
+} __ec_align1;
+/* clang-format on */
+
 /**** fanN_input ****/
 /* Read the current fan speed from the EC's memory */
 static ssize_t ec_get_fan_speed(u8 idx, u16 *val)
@@ -279,9 +305,101 @@ static ssize_t ec_count_fans(size_t *val)
 	return 0;
 }
 
+/**** intrusionN ****/
+static ssize_t ec_chassis_intrusion(u8 *val, bool clear)
+{
+	int ret;
+	if (!ec_device)
+		return -ENODEV;
+
+	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
+
+	struct ec_params_chassis_intrusion_control params = {
+		.clear_magic = 0,
+		.clear_chassis_status = clear,
+	};
+
+	struct ec_response_chassis_intrusion_control resp;
+
+	ret = cros_ec_cmd(ec, 0, EC_CMD_CHASSIS_INTRUSION, &params,
+			  sizeof(params), &resp, sizeof(resp));
+	if (ret < 0)
+		return -EIO;
+
+	*val = resp.chassis_ever_opened;
+
+	return 0;
+}
+
+static ssize_t ec_chassis_open(u8 *val)
+{
+	int ret;
+	if (!ec_device)
+		return -ENODEV;
+
+	struct cros_ec_device *ec = dev_get_drvdata(ec_device);
+
+	struct ec_response_chassis_open_check resp;
+
+	ret = cros_ec_cmd(ec, 0, EC_CMD_CHASSIS_OPEN_CHECK, NULL, 0, &resp,
+			  sizeof(resp));
+	if (ret < 0)
+		return -EIO;
+
+	*val = resp.status;
+
+	return 0;
+}
+
+static ssize_t fw_intrusion_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	int err;
+
+	u8 val;
+	u8 clear;
+	err = kstrtou8(buf, 10, &clear);
+	if (err < 0)
+		return err;
+
+	if (ec_chassis_intrusion(&val, clear == 0) < 0) {
+		return -EIO;
+	}
+
+	return count;
+}
+
+static ssize_t fw_intrusion_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct sensor_device_attribute *sen_attr = to_sensor_dev_attr(attr);
+	int err;
+
+	u8 val;
+	switch (sen_attr->index) {
+	case 0:
+		err = ec_chassis_intrusion(&val, false);
+		break;
+	case 1:
+		err = ec_chassis_open(&val);
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	if (err < 0) {
+		return -EIO;
+	}
+
+	return sysfs_emit(buf, "%u\n", val);
+}
+
 #define FW_ATTRS_PER_FAN 8
 
 /**** hwmon sysfs attributes ****/
+/* Fans */
 /* clang-format off */
 static SENSOR_DEVICE_ATTR_RO(fan1_input, fw_fan_speed, 0); /* Fan Reading */
 static SENSOR_DEVICE_ATTR_RW(fan1_target, fw_fan_target, 0); /* Target RPM (RW on fan 0 only) */
@@ -321,7 +439,7 @@ static SENSOR_DEVICE_ATTR_RO(pwm4_min, fw_pwm_min, 3);
 static SENSOR_DEVICE_ATTR_RO(pwm4_max, fw_pwm_max, 3);
 
 static struct attribute
-	*fw_hwmon_attrs[(EC_FAN_SPEED_ENTRIES * FW_ATTRS_PER_FAN) + 1] = {
+	*fw_fans_attrs[(EC_FAN_SPEED_ENTRIES * FW_ATTRS_PER_FAN) + 1] = {
 		&sensor_dev_attr_fan1_input.dev_attr.attr,
 		&sensor_dev_attr_fan1_target.dev_attr.attr,
 		&sensor_dev_attr_fan1_fault.dev_attr.attr,
@@ -361,7 +479,31 @@ static struct attribute
 		NULL,
 	};
 
-ATTRIBUTE_GROUPS(fw_hwmon);
+static const struct attribute_group fw_fans_group = {
+	.attrs = fw_fans_attrs,
+};
+
+/* Other HWMON Sensors */
+/* clang-format off */
+static SENSOR_DEVICE_ATTR_RW(intrusion0_alarm, fw_intrusion, 0); /* Chassis Intrusion */
+static SENSOR_DEVICE_ATTR_RO(intrusion1_alarm, fw_intrusion, 1); /* Chassis Open */
+/* clang-format on */
+
+static struct attribute *fw_hwmon_attrs[] = {
+	&sensor_dev_attr_intrusion0_alarm.dev_attr.attr,
+	&sensor_dev_attr_intrusion1_alarm.dev_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group fw_hwmon_group = {
+	.attrs = fw_hwmon_attrs,
+};
+
+static const struct attribute_group *fw_hwmon_groups[] = {
+	&fw_fans_group,
+	&fw_hwmon_group,
+	NULL,
+};
 
 int fw_hwmon_register(struct framework_data *data)
 {
@@ -378,7 +520,7 @@ int fw_hwmon_register(struct framework_data *data)
 			return -EINVAL;
 		}
 		/* NULL terminates the list after the last detected fan */
-		fw_hwmon_attrs[fan_count * FW_ATTRS_PER_FAN] = NULL;
+		fw_fans_attrs[fan_count * FW_ATTRS_PER_FAN] = NULL;
 
 		data->hwmon_dev = devm_hwmon_device_register_with_groups(
 			dev, DRV_NAME, NULL, fw_hwmon_groups);

@@ -57,7 +57,9 @@ The keyboard backlight, fingerprint light, and side LEDs are exposed in SysFS as
   - It's a good idea to echo `none` to `/sys/class/leds/framework_laptop:<color>:indicator/trigger` to disable the default trigger.
   - If you want the EC to take over control again, echo `framework-laptop` to the same file.
 
-### Fan Control
+### HWMON
+
+#### Fan Control
 
 This driver supports up to 4 fans, and creates a HWMON interface with the name `framework_laptop`.
 
@@ -72,6 +74,14 @@ This driver supports up to 4 fans, and creates a HWMON interface with the name `
   - Writing to the other interfaces will disable automatic fan control.
 - `pwm[1-4]_min` - returns 0 (read-only)
 - `pwm[1-4]_max` - returns 100 (read-only)
+
+#### Intrusion Detection
+
+- `intrusion0_alarm` - Chassis intrusion indicator (read-write)
+  - Writing `0` will clear the alarm
+  - Reading will return the alarm status (0 or 1)
+- `intrusion1_alarm` - Chassis open indicator (read-only)
+  - Reading will return the alarm status (0 or 1)
 
 ### Privacy Switches
 
