@@ -36,7 +36,7 @@ static enum led_brightness kb_led_get(struct led_classdev *led)
 
 	struct ec_response_pwm_get_keyboard_backlight resp;
 
-	ret = cros_ec_cmd(ec, 0, EC_CMD_PWM_SET_KEYBOARD_BACKLIGHT, NULL, 0,
+	ret = cros_ec_cmd(ec, 0, EC_CMD_PWM_GET_KEYBOARD_BACKLIGHT, NULL, 0,
 			  &resp, sizeof(resp));
 	if (ret < 0) {
 		return -EIO;

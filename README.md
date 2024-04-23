@@ -51,7 +51,7 @@ This module requires `cros_ec` and `cros_ec_lpcs` to be loaded and functional.
 The keyboard backlight, fingerprint light, and side LEDs are exposed in SysFS as LEDs.
 
 - `/sys/class/leds/framework_laptop::kbd_backlight` - Keyboard backlight (0-100)
-- `/sys/class/leds/framework_laptop::fingerprint` - Fingerprint light (0-2, remembered across reboots)
+- `/sys/class/leds/framework_laptop::fingerprint` - Fingerprint light (0-2)
 - `/sys/class/leds/framework_laptop:<color>:indicator` - Side LEDs (0-100)
   - `<color>` is one of `red`, `green`, `blue`, `yellow`, `white`, `amber`.
   - It's a good idea to echo `none` to `/sys/class/leds/framework_laptop:<color>:indicator/trigger` to disable the default trigger.
